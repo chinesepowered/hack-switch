@@ -10,6 +10,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { createHash } from 'node:crypto';
 import { narratePages } from '../tools/lib/narrate.mjs';
 
 const run = promisify(execFile);
@@ -17,6 +18,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = process.argv[2] || join(ROOT, 'demo', 'out');
 const WORK = join(OUT, 'build');
 mkdirSync(WORK, { recursive: true });
+// Voiceover clips are cached by their text, so rebuilding costs no ElevenLabs credits.
+const VO_CACHE = join(ROOT, 'demo', '.vo-cache');
+mkdirSync(VO_CACHE, { recursive: true });
 const W = 1920, H = 1080, FPS = 30;
 
 // Settings from the repo's .env (the ElevenLabs key) and stack/.env (accounts).
@@ -55,18 +59,21 @@ const beats = CARDS_ONLY ? [] : [
     vo: 'Nana shares a memory, and Mia asks Mochi for a story.' },
   { from: t('mia_request') + 3, to: t('mochi_story') + 5, who: 'mochi', caption: 'Mochi reads the Story bible and writes eight pages',
     vo: 'Mochi checks our story bible, writes eight little pages, and hands them to Pebble, right in the chat.' },
-  { from: t('mochi_story') + 5, to: t('pebble_art') + 7, who: 'pebble', caption: 'Pebble draws every page with the CapyTales art kit',
-    vo: 'Pebble paints every page, and shows the grown-ups.' },
-  { from: t('mia_tries_yuzu') - 1, to: (has('switch_blocks') ? t('switch_blocks') : t('mia_tries_yuzu') + 3) + 4, who: 'yuzu',
-    caption: 'Switch addressing policy: only a grown-up can ask Yuzu to read',
+  { from: t('mochi_story') + 5, to: t('pebble_art') + 3, who: 'pebble', caption: 'Pebble draws every page with the CapyTales art kit',
+    vo: 'Pebble paints every page with our art kit,' },
+  ...(has('art_preview_start') ? [{ from: t('art_preview_start') - 0.2, to: t('art_preview_end'), who: 'pebble', maxSpeed: 1.4,
+    caption: "Pebble's pages, straight from the family chat", vo: 'and posts them for the grown-ups to see.' }] : []),
+  { from: t('mia_tries_yuzu') - 1, to: has('thread_closed') ? t('thread_closed') : (has('switch_blocks') ? t('switch_blocks') : t('mia_tries_yuzu') + 3) + 4,
+    who: 'yuzu', maxSpeed: 1.6, caption: 'Switch addressing policy: only a grown-up can ask Yuzu to read',
     vo: 'Mia tries to skip ahead! But Switch only lets a grown-up tell me to read.' },
   { from: t('sam_typing') - 0.5, to: t('sam_approves') + 2, who: 'yuzu', caption: 'Sam reads it and approves', maxSpeed: 1.6,
     vo: 'So Sam reads it first, and says yes.' },
   { from: t('sam_approves') + 2, to: t('yuzu_reads') + 4, who: 'yuzu', caption: 'Yuzu narrates it with ElevenLabs',
     vo: 'Then I read it aloud, in my ElevenLabs voice,' },
-  { from: t('yuzu_reads') + 4, to: (has('tofu_book') ? t('tofu_book') : t('tofu_video')) + 4, who: 'tofu',
+  { from: t('yuzu_reads') + 4, to: (has('tofu_book') ? t('tofu_book') : t('tofu_video')) + 2.5, who: 'tofu',
     caption: 'Tofu binds a read-along storybook, a PDF and a story video',
     vo: 'and Tofu binds a read-along book, and a story video.' },
+  ...(has('video_open') ? [{ from: t('video_open') - 0.3, to: t('video_open') + 3.5, who: 'tofu', caption: "Tofu's story video, playing in the family chat" }] : []),
   { story: true, start: 1.2, dur: 27 },
   ...(has('bible_updated') ? [{ from: t('bible_updated') - 1, to: t('bible_updated') + 5, who: 'tofu',
     caption: 'Tofu updates the Story bible, a Switch room document', vo: 'Tofu writes it all down in our story bible,' }] : []),
@@ -169,30 +176,37 @@ for (const beat of beats) {
     console.log(`seg ${id}: story playback ${beat.dur}s`);
     continue;
   }
-  // Voiceover for this beat.
-  const vo = join(WORK, `vo${id}.mp3`);
-  if (!existsSync(vo)) await narratePages([beat.vo], vo);
+  // Voiceover for this beat (a beat without one plays at normal speed, silent).
+  const vo = beat.vo ? join(VO_CACHE, `${createHash('sha1').update(`${process.env.CAPY_VOICE_ID || ''}|${beat.vo}`).digest('hex').slice(0, 16)}.mp3`) : join(WORK, `vo${id}.mp3`);
+  if (beat.vo) {
+    if (!existsSync(vo)) await narratePages([beat.vo], vo);
+  } else {
+    await ff(['-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo', '-t', String(beat.to - beat.from), '-c:a', 'libmp3lame', vo]);
+  }
   const voDur = await dur(vo);
-  const target = Math.max(voDur + 0.9, beat.card ? 4.5 : 3.5);
+  const target = beat.vo ? Math.max(voDur + 0.9, beat.card ? 4.5 : 3.5) : voDur;
+  // A recording beat can run longer than its line (a speed cap); pad the audio
+  // to the clip's real length so every segment's audio and video match.
+  const raw = beat.card ? 0 : beat.to - beat.from;
+  const speed = beat.card ? 1 : Math.min(Math.max(raw / target, 1), beat.maxSpeed ?? 40);
+  const shown = beat.card ? target : raw / speed;
+  const length = Math.max(target, shown);
   const audio = join(WORK, `a${id}.wav`);
-  await ff(['-i', vo, '-af', `adelay=350|350,apad,aresample=44100,aformat=channel_layouts=stereo`, '-t', target.toFixed(2), audio]);
+  await ff(['-i', vo, '-af', `adelay=350|350,apad,aresample=44100,aformat=channel_layouts=stereo`, '-t', length.toFixed(2), audio]);
 
   if (beat.card) {
     const img = await png(cardHtml(beat.card), join(WORK, `card${id}.png`));
-    await ff(['-loop', '1', '-i', img, '-i', audio, '-vf', `fps=${FPS},scale=${W}:${H},format=yuv420p`, '-t', target.toFixed(2),
+    await ff(['-loop', '1', '-i', img, '-i', audio, '-vf', `fps=${FPS},scale=${W}:${H},format=yuv420p`, '-t', length.toFixed(2),
       '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-c:a', 'aac', '-b:a', '160k', '-shortest', seg]);
   } else {
-    const raw = beat.to - beat.from;
-    const speed = Math.min(Math.max(raw / target, 1), beat.maxSpeed ?? 40);
-    const shown = raw / speed;
-    const hold = Math.max(0, target - shown);
+    const hold = Math.max(0, length - shown);
     const cap = await png(captionHtml(beat, speed), join(WORK, `cap${id}.png`), true);
     await ff(['-ss', beat.from.toFixed(2), '-to', beat.to.toFixed(2), '-i', join(OUT, 'raw.webm'), '-i', cap, '-i', audio, '-filter_complex',
       `[0:v]setpts=(PTS-STARTPTS)/${speed.toFixed(3)},fps=${FPS},scale=${W}:${Math.round(W * 900 / 1440)}:flags=lanczos,` +
       `crop=${W}:${H}:0:${Math.round((W * 900 / 1440 - H) / 2)},tpad=stop_mode=clone:stop_duration=${hold.toFixed(2)},setsar=1[v];` +
-      `[v][1:v]overlay=0:0,format=yuv420p[out]`, '-map', '[out]', '-map', '2:a', '-t', Math.max(target, shown).toFixed(2),
+      `[v][1:v]overlay=0:0,format=yuv420p[out]`, '-map', '[out]', '-map', '2:a', '-t', length.toFixed(2),
       '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-c:a', 'aac', '-b:a', '160k', seg]);
-    console.log(`seg ${id}: ${raw.toFixed(1)}s of recording at ${speed.toFixed(1)}x -> ${Math.max(target, shown).toFixed(1)}s`);
+    console.log(`seg ${id}: ${raw.toFixed(1)}s of recording at ${speed.toFixed(1)}x -> ${length.toFixed(1)}s`);
   }
   segs.push(seg);
 }

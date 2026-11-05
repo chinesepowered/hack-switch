@@ -10,7 +10,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = process.argv[2] || join(ROOT, 'demo', 'out');
-const MM = process.env.MM_URL || 'http://127.0.0.1:8065';
+// Must match Mattermost's SiteURL (localhost), or its WebSocket refuses the
+// page's origin and the window stops receiving new messages.
+const MM = process.env.MM_URL || 'http://localhost:8065';
 const ROOM = 'capy-bedtime';
 const VIEW = { width: 1440, height: 900 };
 mkdirSync(OUT, { recursive: true });
@@ -126,13 +128,40 @@ const art = await waitFor('capy-pebble', since, { files: true });
 mark('pebble_art', { post: art.id });
 await page.waitForTimeout(6000);
 await waitFor('capy-pebble', art.create_at, { contains: 'yuzu', timeout: 60 }).then(() => mark('pebble_ready')).catch(() => {});
-await page.waitForTimeout(3000);
+await page.waitForTimeout(2000);
+
+// Flip through Pebble's pages in Mattermost's preview.
+try {
+  const artPost = page.locator(`#post_${art.id}`);
+  await artPost.scrollIntoViewIfNeeded();
+  await artPost.getByText(/p1\.png/).first().click();
+  mark('art_preview_start');
+  await page.waitForTimeout(2600);
+  for (let i = 0; i < 3; i++) { await page.keyboard.press('ArrowRight'); await page.waitForTimeout(2200); }
+  await page.keyboard.press('Escape');
+  mark('art_preview_end');
+} catch (e) {
+  console.log('preview skipped:', e.message.split('\n')[0]);
+  await page.keyboard.press('Escape').catch(() => {});
+}
+await page.waitForTimeout(1500);
 
 since = T();
-await post('mia', '@capy-yuzu read it to me now pleeease!!');
+const gate = await post('mia', '@capy-yuzu read it to me now pleeease!!');
 mark('mia_tries_yuzu');
 await waitFor('capy-yuzu', since, { timeout: 60 }).then(() => mark('switch_blocks')).catch(() => mark('switch_blocks_timeout'));
-await page.waitForTimeout(5000);
+await page.waitForTimeout(1500);
+// Switch's answer is a threaded reply: open the thread to show it.
+try {
+  await page.locator(`#post_${gate}`).getByText(/\d+ repl/).first().click();
+  mark('thread_open');
+  await page.waitForTimeout(5000);
+  await page.locator('#rhsCloseButton, button[aria-label*="Close"]').first().click({ timeout: 3000 }).catch(() => page.keyboard.press('Escape'));
+  mark('thread_closed');
+} catch (e) {
+  console.log('thread skipped:', e.message.split('\n')[0]);
+}
+await page.waitForTimeout(2500);
 
 // Sam approves, typed in the browser.
 const box = page.locator('#post_textbox');
@@ -151,6 +180,22 @@ const movie = await waitFor('capy-tofu', audio.create_at, { files: true, timeout
 mark('tofu_video', { post: movie.id });
 const book = await waitFor('capy-tofu', movie.create_at, { files: true, timeout: 300 }).catch(() => null);
 if (book) mark('tofu_book', { post: book.id });
+await page.waitForTimeout(2500);
+// Play Tofu's story video right in the chat (muted: the edit uses its audio).
+try {
+  const moviePost = page.locator(`#post_${movie.id}`);
+  await moviePost.scrollIntoViewIfNeeded();
+  await moviePost.getByText(/story\.mp4/).first().click();
+  await page.waitForTimeout(1500);
+  await page.locator('video').first().evaluate((el) => { el.muted = true; el.currentTime = 0; return el.play(); }).catch(() => {});
+  mark('video_open');
+  await page.waitForTimeout(7000);
+  await page.keyboard.press('Escape');
+  mark('video_close');
+} catch (e) {
+  console.log('video skipped:', e.message.split('\n')[0]);
+  await page.keyboard.press('Escape').catch(() => {});
+}
 await waitFor('capy-tofu', (book || movie).create_at, { contains: 'bible', timeout: 300 })
   .then((p) => mark('bible_updated', { post: p.id })).catch(() => mark('bible_timeout'));
 await page.waitForTimeout(6000);
