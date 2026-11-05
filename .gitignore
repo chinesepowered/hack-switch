@@ -19,3 +19,4 @@ __pycache__/
 *.pyc
 .venv/
 demo/.vo-cache/
+stack/.run.json
