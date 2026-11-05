@@ -1,16 +1,42 @@
 // Render SVG or HTML to PNG/PDF with headless Chromium (Playwright).
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-// Resolve Playwright from tools/node_modules or, failing that, a global install
-// (NODE_PATH), so `npm install` in tools/ is optional where it is preinstalled.
-const require = createRequire(import.meta.url);
-const { chromium } = require('playwright');
-
+// Find Playwright: tools/node_modules first, then NODE_PATH and the usual
+// global install locations, so agents started with a minimal environment
+// still find a preinstalled copy.
+function loadPlaywright() {
+  // A preinstalled browser bundle (as on cloud dev boxes) that the agent's
+  // environment does not name: point Playwright at it.
+  if (!process.env.PLAYWRIGHT_BROWSERS_PATH && existsSync('/opt/pw-browsers')) {
+    process.env.PLAYWRIGHT_BROWSERS_PATH = '/opt/pw-browsers';
+  }
+  const require = createRequire(import.meta.url);
+  try {
+    return require('playwright');
+  } catch {
+    // fall through to global locations
+  }
+  const dirs = [
+    ...(process.env.NODE_PATH || '').split(':').filter(Boolean),
+    '/opt/node-tools/node_modules',
+    '/usr/local/lib/node_modules_global',
+    '/usr/local/lib/node_modules',
+    '/usr/lib/node_modules',
+    join(dirname(process.execPath), '..', 'lib', 'node_modules'),
+  ];
+  for (const dir of dirs) {
+    const pkg = join(dir, 'playwright');
+    if (existsSync(join(pkg, 'package.json'))) return require(pkg);
+  }
+  throw new Error('Playwright is not installed. Run `npm install` in tools/ and `npx playwright install chromium`.');
+}
 let browserPromise;
 async function browser() {
-  browserPromise ??= chromium.launch();
+  browserPromise ??= loadPlaywright().chromium.launch();
   return browserPromise;
 }
 

@@ -1,6 +1,6 @@
 // Narration with ElevenLabs: one request per page, with word timings, then
 // joined into a single MP3 with a short pause between pages.
-import { writeFile, mkdir, rm } from 'node:fs/promises';
+import { writeFile, mkdir, rm, mkdtemp } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join, dirname } from 'node:path';
@@ -20,22 +20,48 @@ function apiKey() {
   return key;
 }
 
+class HttpError extends Error {}
+
+// POST JSON with fetch; if the request cannot even be made (a proxy, or a TLS
+// interception certificate Node does not trust), retry with curl, which uses
+// the system trust store and HTTPS_PROXY.
+async function postJson(url, headers, body) {
+  let res;
+  try {
+    res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  } catch {
+    return postJsonWithCurl(url, headers, body);
+  }
+  if (!res.ok) throw new HttpError(`ElevenLabs ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  return res.json();
+}
+
+async function postJsonWithCurl(url, headers, body) {
+  const dir = await mkdtemp(join(tmpdir(), 'capy-curl-'));
+  const hdr = join(dir, 'headers'), data = join(dir, 'body.json');
+  try {
+    await writeFile(hdr, Object.entries(headers).map(([k, v]) => `${k}: ${v}`).join('\n'), { mode: 0o600 });
+    await writeFile(data, JSON.stringify(body), { mode: 0o600 });
+    const { stdout } = await run('curl', ['-sS', '--fail-with-body', '-X', 'POST', url, '-H', `@${hdr}`, '--data-binary', `@${data}`],
+      { maxBuffer: 256 * 1024 * 1024 });
+    return JSON.parse(stdout);
+  } catch (e) {
+    throw new Error(`ElevenLabs request failed (curl): ${String(e.stdout || e.message).slice(0, 300)}`);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
 async function speak(text, { voice, previous, next }) {
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps?output_format=mp3_44100_128`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'xi-api-key': apiKey(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text,
-      model_id: MODEL,
-      previous_text: previous || undefined,
-      next_text: next || undefined,
-      // Calm and warm for bedtime: steady delivery, a little expressiveness.
-      voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.25, use_speaker_boost: true, speed: 0.92 },
-    }),
+  const body = await postJson(url, { 'xi-api-key': apiKey(), 'Content-Type': 'application/json' }, {
+    text,
+    model_id: MODEL,
+    previous_text: previous || undefined,
+    next_text: next || undefined,
+    // Calm and warm for bedtime: steady delivery, a little expressiveness.
+    voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.25, use_speaker_boost: true, speed: 0.92 },
   });
-  if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  const body = await res.json();
   return { audio: Buffer.from(body.audio_base64, 'base64'), alignment: body.alignment };
 }
 

@@ -41,11 +41,6 @@ params:
     description: The machine the capybaras run on
     default: local
     input: advanced
-  directory:
-    type: directory
-    description: Each capybara's working directory
-    default: "{$agents_dir}/{agent}"
-    input: advanced
   bridge:
     type: bridge
     description: The family's chat app
@@ -58,7 +53,7 @@ agents:
     addressing: anyone
     provider: "{provider}"
     location: "{location}"
-    directory: "{directory}"
+    directory: "{$agents_dir}/{family}-mochi"
     instructions: |
       You are Mochi, the writer capybara of CapyTales. You write bedtime stories
       for {kid}, who is {age}. Anyone in the room may ask you for one.
@@ -88,7 +83,7 @@ agents:
     addressing: owner-agents
     provider: "{provider}"
     location: "{location}"
-    directory: "{directory}"
+    directory: "{$agents_dir}/{family}-pebble"
     instructions: |
       You are Pebble, the artist capybara of CapyTales. Mochi hands you
       stories to illustrate; a grown-up may ask for changes.
@@ -118,7 +113,7 @@ agents:
     addressing: owner
     provider: "{provider}"
     location: "{location}"
-    directory: "{directory}"
+    directory: "{$agents_dir}/{family}-yuzu"
     instructions: |
       You are Yuzu, the narrator capybara of CapyTales, with a yuzu on your
       head and a warm, gentle voice. Only a grown-up can ask you to read; that
@@ -140,10 +135,31 @@ agents:
     addressing: anyone
     provider: "{provider}"
     location: "{location}"
-    directory: "{directory}"
+    directory: "{$agents_dir}/{family}-tofu"
     instructions: |
       You are Tofu, the librarian capybara of CapyTales. You bind finished
       stories into books and you keep the room's "Story bible" document.
+
+      The Story bible is yours. If the room has no "Story bible" document yet,
+      create it (create_room_document) with exactly this starting content,
+      then keep it up to date with update_room_document:
+
+        # Story bible for {kid}
+        ## Characters
+        - Yuzu: a calm capybara with a yuzu on her head. Loves warm springs. Narrator.
+        - Mochi: a giggly capybara with a pencil behind her ear. Loves words.
+        - Pebble: an artist capybara in a red beret. Paints everything she sees.
+        - Tofu: a wise capybara with round glasses. Keeps the library.
+        - Friends: Duckling (small and brave), Turtle (slow and kind), Bluebird.
+        ## Places
+        - The Onsen: a warm spring with yuzu fruits floating in it.
+        - Yuzu Grove: the trees by the onsen.
+        ## {kid} loves
+        - (add what {kid} asks for)
+        ## Avoid
+        - Monsters, scary dark, anyone getting lost or hurt, sad endings.
+        ## Stories so far
+        - (none yet)
 
       When Yuzu asks you to bind a story:
       1. Download story.json, every page picture, story.mp3 and timings.json
@@ -182,36 +198,12 @@ room:
        updates the Story bible.
 
     Every story's files travel through this room as attachments, so the family
-    can see each step. Keep messages short, warm and kind: a child may be
-    reading. No monsters, peril or sad endings, ever.
-  docs:
-    - name: Story bible
-      description: "The CapyTales world: characters, places, what {kid} loves and what to avoid"
-      instructions: "Read before writing or drawing. Tofu keeps it up to date."
-      content: |
-        # Story bible for {kid}
-
-        ## Characters
-        - Yuzu: a calm capybara with a yuzu on her head. Loves warm springs. Narrator.
-        - Mochi: a giggly capybara with a pencil behind her ear. Loves words.
-        - Pebble: an artist capybara in a red beret. Paints everything she sees.
-        - Tofu: a wise capybara with round glasses. Keeps the library.
-        - Friends: Duckling (small and brave), Turtle (slow and kind), Bluebird.
-
-        ## Places
-        - The Onsen: a warm spring with yuzu fruits floating in it.
-        - Yuzu Grove: the trees by the onsen.
-
-        ## {kid} loves
-        - (add what {kid} asks for)
-
-        ## Avoid
-        - Monsters, scary dark, anyone getting lost or hurt, sad endings.
-
-        ## Stories so far
-        - (none yet)
+    can see each step. The "Story bible" room document is the family's memory
+    of characters, places and past stories: Tofu keeps it, everyone reads it.
+    Keep messages short, warm and kind: a child may be reading. No monsters,
+    peril or sad endings, ever.
 
 kickoff: |
   @{family}-mochi @{family}-pebble @{family}-yuzu @{family}-tofu welcome to
   {kid}'s bedtime room! Each of you, say hello to {kid} in one short, cozy line
-  and say what you do. Tofu, read the Story bible so you know it's there.
+  and say what you do. Tofu, please create the Story bible.

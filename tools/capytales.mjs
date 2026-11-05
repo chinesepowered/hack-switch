@@ -7,8 +7,8 @@
 //   capytales bind <story-dir>               Tofu: storybook.html + .pdf + cover.png + story.mp4
 //   capytales check <story-dir>              Anyone: validate story.json and its files
 //
-// Reads ELEVENLABS_API_KEY (and optional CAPY_VOICE_ID) from the environment or
-// from a .env file at the repository root. Never commit that file.
+// Reads ELEVENLABS_API_KEY (and optional CAPY_VOICE_ID) from the environment,
+// the repository's .env, or ~/.config/capytales/env. Never commit those files.
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
@@ -16,12 +16,16 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
+// Agents run with a minimal environment, so settings can also live in a file:
+// the repository's .env, or ~/.config/capytales/env for the whole machine.
 function loadDotEnv() {
-  const file = join(ROOT, '.env');
-  if (!existsSync(file)) return;
-  for (const line of readFileSync(file, 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  const files = [join(ROOT, '.env'), join(process.env.HOME || '', '.config', 'capytales', 'env')];
+  for (const file of files) {
+    if (!existsSync(file)) continue;
+    for (const line of readFileSync(file, 'utf8').split('\n')) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    }
   }
 }
 
@@ -60,7 +64,10 @@ Elements (x, y are where the thing stands; scale 1 = a grown-up capybara about 2
   tree      { x, y, scale, color }  house { x, y, scale, lit }  bed { x, y, scale, quilt }
   duckling  { x, y, scale, facing } turtle { x, y, scale, facing } bird { x, y, scale, color, facing }
   lilypad   { x, y, scale }         text { x, y, text, size, color, stroke }
-Canvas is 1200x800; the ground starts at y=608. Put things that stand on the ground at y 620-780.`);
+Canvas is 1200x800; the ground starts at y=608. Put things that stand on the ground at y 640-780.
+Make the page's main characters big and close to the middle: scale 1.4-1.9 for grown-ups, and kid: true
+with scale 1.6-2.2 for little ones (kids are drawn at 62%). Side characters can be smaller.
+Keep the top 170px for sky only: the page's words are printed there.`);
       break;
     }
     case 'narrate': {
