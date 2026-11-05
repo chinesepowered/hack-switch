@@ -5,6 +5,7 @@
 stack/.env
 stack/switch-compose.yml
 stack/controller/
+stack/logs/
 
 # Generated media (videos are shared as release attachments, not committed)
 *.mp4
