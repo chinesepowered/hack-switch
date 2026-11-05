@@ -24,5 +24,11 @@ fi
 # 3. Demo family accounts (idempotent).
 "$HERE/family.sh"
 
-# 4. The agent controller (enrolls this machine the first time).
+# 4. The capytales command the capybaras use (this repo's own tools).
+if ! command -v capytales >/dev/null; then
+  chmod +x "$HERE/../tools/capytales.mjs"
+  ln -sf "$HERE/../tools/capytales.mjs" /usr/local/bin/capytales
+fi
+
+# 5. The agent controller (enrolls this machine the first time).
 "$HERE/controller.sh"
