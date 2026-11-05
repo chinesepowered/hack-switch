@@ -1,0 +1,19 @@
+# Secrets and generated stack files
+.env
+*.env
+.env.*
+stack/.env
+stack/switch-compose.yml
+stack/controller/
+
+# Generated media (videos are shared as release attachments, not committed)
+*.mp4
+*.webm
+out/
+demo/out/
+
+# Tooling
+node_modules/
+__pycache__/
+*.pyc
+.venv/

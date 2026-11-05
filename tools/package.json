@@ -1,0 +1,12 @@
+{
+  "name": "capytales-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The tools the CapyTales capybaras use: draw scenes, narrate with ElevenLabs, bind storybooks",
+  "type": "module",
+  "bin": { "capytales": "capytales.mjs" },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}
