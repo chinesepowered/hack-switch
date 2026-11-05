@@ -25,8 +25,8 @@ A story moves through the room like this:
 
 1. Nana drops a memory: "Mia still talks about the littlest turtle at the lake."
 2. Mia asks `@capy-mochi` for a story about a baby capybara who's scared of the hot spring.
-3. Mochi writes eight short pages and hands them to `@capy-pebble`, with `story.json` attached.
-4. Pebble draws all eight pages and tells the grown-ups the story is ready.
+3. Mochi writes a short story (7 or 8 pages) and hands it to `@capy-pebble`, with `story.json` attached.
+4. Pebble draws every page and tells the grown-ups the story is ready.
 5. Sam reads it and asks `@capy-yuzu` to read it to Mia.
 6. Yuzu narrates it and passes the recording to `@capy-tofu`.
 7. Tofu posts the story video and the books, and writes the story into the family's **Story bible**.

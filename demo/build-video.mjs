@@ -6,7 +6,7 @@
 //   node demo/build-video.mjs demo/out
 import { createRequire } from 'node:module';
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -15,7 +15,7 @@ import { narratePages } from '../tools/lib/narrate.mjs';
 
 const run = promisify(execFile);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = process.argv[2] || join(ROOT, 'demo', 'out');
+const OUT = resolve(process.argv[2] || join(ROOT, 'demo', 'out'));
 const WORK = join(OUT, 'build');
 mkdirSync(WORK, { recursive: true });
 // Voiceover clips are cached by their text, so rebuilding costs no ElevenLabs credits.
@@ -57,11 +57,11 @@ const beats = CARDS_ONLY ? [] : [
     vo: 'Mia\'s family and four capybara agents share one Switch room. Mochi writes, Pebble draws, I read aloud, and Tofu makes the book.' },
   { from: t('nana_memory') - 0.5, to: t('mia_request') + 3, who: 'mochi', caption: 'Nana shares a memory. Mia asks @capy-mochi for a story',
     vo: 'Nana shares a memory, and Mia asks Mochi for a story.' },
-  { from: t('mia_request') + 3, to: t('mochi_story') + 5, who: 'mochi', caption: 'Mochi reads the Story bible and writes eight pages',
-    vo: 'Mochi checks our story bible, writes eight little pages, and hands them to Pebble, right in the chat.' },
+  { from: t('mia_request') + 3, to: t('mochi_story') + 5, who: 'mochi', caption: 'Mochi reads the Story bible and writes the story',
+    vo: 'Mochi checks our story bible, writes the story, and hands it to Pebble, right in the chat.' },
   { from: t('mochi_story') + 5, to: t('pebble_art') + 3, who: 'pebble', caption: 'Pebble draws every page with the CapyTales art kit',
     vo: 'Pebble paints every page with our art kit,' },
-  ...(has('art_preview_start') ? [{ from: t('art_preview_start') - 0.2, to: t('art_preview_end'), who: 'pebble', maxSpeed: 1.4,
+  ...(has('art_preview_start') ? [{ from: t('art_preview_start') - 0.2, to: t('art_preview_end'), who: 'pebble', maxSpeed: 1.4, capTop: true,
     caption: "Pebble's pages, straight from the family chat", vo: 'and posts them for the grown-ups to see.' }] : []),
   { from: t('mia_tries_yuzu') - 1, to: has('thread_closed') ? t('thread_closed') : (has('switch_blocks') ? t('switch_blocks') : t('mia_tries_yuzu') + 3) + 4,
     who: 'yuzu', maxSpeed: 1.6, caption: 'Switch addressing policy: only a grown-up can ask Yuzu to read',
@@ -104,12 +104,12 @@ async function png(html, out, transparent = false) {
 }
 
 function captionHtml(beat, speed) {
-  return `<div style="position:absolute;left:40px;bottom:34px;display:flex;align-items:center;gap:18px;padding:14px 30px 14px 14px;
+  return `<div style="position:absolute;left:40px;${beat.capTop ? 'top:96px' : 'bottom:34px'};display:flex;align-items:center;gap:18px;padding:14px 30px 14px 14px;
       background:rgba(74,46,30,.92);border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.25)">
       <img src="${AV[beat.who]}" style="width:64px;height:64px;border-radius:50%">
       <span style="font-family:'Baloo 2';font-weight:700;font-size:36px;color:#FFF3E0">${beat.caption}</span></div>
-    ${speed > 1.05 ? `<div style="position:absolute;right:40px;top:30px;padding:8px 20px;border-radius:999px;background:rgba(74,46,30,.85);
-      color:#FFE38A;font-family:'Baloo 2';font-weight:800;font-size:30px">⏩ sped up ${Math.round(speed)}×</div>` : ''}`;
+    ${speed >= 1.5 ? `<div style="position:absolute;right:40px;top:30px;padding:8px 20px;border-radius:999px;background:rgba(74,46,30,.85);
+      color:#FFE38A;font-family:'Baloo 2';font-weight:800;font-size:30px">⏩ sped up ${speed < 3 ? speed.toFixed(1) : Math.round(speed)}×</div>` : ''}`;
 }
 
 const cream = 'background:radial-gradient(circle at 50% 35%,#FFF6E4,#F6DDB8 70%,#EFCB98)';
@@ -167,7 +167,7 @@ for (const beat of beats) {
   if (beat.story) {
     const storyPath = join(OUT, 'story.mp4');
     if (!existsSync(storyPath)) { console.log('no story.mp4, skipping playback'); continue; }
-    const tag = await png(`<div style="position:absolute;right:40px;top:30px;display:flex;align-items:center;gap:14px;padding:10px 24px 10px 10px;border-radius:999px;background:rgba(74,46,30,.88)">
+    const tag = await png(`<div style="position:absolute;right:40px;bottom:34px;display:flex;align-items:center;gap:14px;padding:10px 24px 10px 10px;border-radius:999px;background:rgba(74,46,30,.88)">
       <img src="${AV.tofu}" style="width:54px;height:54px;border-radius:50%"><span style="font-family:'Baloo 2';font-weight:700;font-size:30px;color:#FFF3E0">The story video Tofu posted, read by Yuzu</span></div>`, join(WORK, `tag${id}.png`), true);
     await ff(['-ss', String(beat.start), '-t', String(beat.dur), '-i', storyPath, '-i', tag, '-filter_complex',
       `[0:v]fps=${FPS},scale=${W}:${H},setsar=1[v];[v][1:v]overlay=0:0,format=yuv420p[out];[0:a]aresample=44100,aformat=channel_layouts=stereo[a]`,
@@ -216,5 +216,6 @@ const list = join(WORK, 'segs.txt');
 writeFileSync(list, segs.map((s) => `file '${s}'`).join('\n'));
 const final = join(OUT, 'capytales-demo.mp4');
 await ff(['-f', 'concat', '-safe', '0', '-i', list, '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p',
-  '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', final]);
+  // Loud, like most online video: -14 LUFS with peaks kept under -1 dBTP.
+  '-af', 'loudnorm=I=-14:TP=-1:LRA=11', '-ar', '44100', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', final]);
 console.log(`demo video: ${final} (${(await dur(final)).toFixed(1)}s)`);

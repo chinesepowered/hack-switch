@@ -16,7 +16,7 @@ remembers it for tomorrow night.
 </div>
 
 > Built for the **Flip the Switch** hackathon, Track 02 (personal or creative workflow).
-> 🎬 **Demo video:** *(link)*
+> 🎬 **Demo video:** *(link)*: recorded from a real run of this room (long waits sped up and labelled).
 
 ![The CapyTales room in Mattermost](docs/room.png)
 
@@ -24,7 +24,7 @@ remembers it for tomorrow night.
 
 1. **Nana** (grandma) drops a memory: "Mia still talks about the littlest turtle at the lake 🐢".
 2. **Mia (6)** asks `@capy-mochi` for a story about a baby capybara who's scared of the big hot spring.
-3. **Mochi** reads the room's *Story bible*, writes eight short pages and hands them to
+3. **Mochi** reads the room's *Story bible*, writes a short story (7 or 8 pages) and hands it to
    `@capy-pebble`, with `story.json` attached.
 4. **Pebble** draws every page with the CapyTales art kit and tells the grown-ups the story is ready.
 5. **Mia** tries `@capy-yuzu read it now!!`. Switch refuses: Yuzu takes instructions only from a grown-up.
