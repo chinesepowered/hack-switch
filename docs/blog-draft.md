@@ -2,6 +2,8 @@
 
 *Draft for the Flip the Switch blog prize. Edit freely before publishing.*
 
+🎬 Watch the 2-minute demo: https://www.youtube.com/watch?v=3CRI8Lrd6ck
+
 Every parent knows the 8 pm request: "one more story, a new one, with the turtle from the lake."
 CapyTales answers it with a family chat room where four capybara agents write, illustrate,
 narrate and bind a brand-new bedtime story, and where a grown-up always has the last word.

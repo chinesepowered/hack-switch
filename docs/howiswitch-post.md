@@ -9,6 +9,8 @@ aloud (ElevenLabs), Tofu binds the book.
 
 Kids can ask. Only a grown-up can say "read it", and Switch enforces that.
 
+🎬 https://www.youtube.com/watch?v=3CRI8Lrd6ck
+
 #HowISwitch #FlipTheSwitch
 
 ## LinkedIn (longer)
@@ -28,6 +30,7 @@ What I liked about building on Switch:
   story remembers tonight's.
 • One template sets the whole thing up.
 
+Demo (2 min): https://www.youtube.com/watch?v=3CRI8Lrd6ck
 Repo: github.com/chinesepowered/hack-switch
 
 #HowISwitch #FlipTheSwitch #AIagents
